@@ -1,0 +1,8 @@
+label: dos
+label-id: 0x0001ce7e
+device: /dev/sda
+unit: sectors
+
+/dev/sda1 : start=        2048, size=   471652352, type=83, bootable
+/dev/sda2 : start=   471656446, size=    16740354, type=5
+/dev/sda5 : start=   471656448, size=    16740352, type=82

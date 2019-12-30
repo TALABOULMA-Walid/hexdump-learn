@@ -1,0 +1,15 @@
+### Basics
+hexdump -C -s256 -n32 -v ch
+sudo dd if=/dev/sda bs=512 count=1 of=~/Projects/hexdump-learn/first_sector
+hexdump -Cv -s446 -n64 first_sector 
+
+### Formatting
+hexdump -v -s446 -n64 -e'1/1  "%02X "' first_sector
+hexdump -v -s446 -n64 -e'16/1 "%02X \n"' first_sector
+hexdump -v -s446 -n64 -e'1/1  "%02X  " 15/1 "%02X " "\n"' first_sector
+### More partition info extraction
+hexdump -v -s446 -n64 -e'1/1 "Boot: %02X | "  1/1 "H: %02X | " 1/1 "S: %02X | " 1/1 "C: %02X | "  12/1 "%02X" "\n"' first_sector
+hexdump -v -s446 -n64 -e'1/1 "Boot: %02X |"  "BEGIN:H:S:C:" 3/1 "%3u " 1/1 " TP:%02X " "END:H:S:C:" 3/1 "%3u " 9/1 " %02X" "\n"' first_sector
+
+
+
