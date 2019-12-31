@@ -1,0 +1,240 @@
+#!/bin/bash
+# Decode a UDP packet raw binary dataDone
+
+let offs=40
+declare -i ws
+declare -i end
+declare -i rmndr
+declare -i byteval
+declare -i bitws
+
+NetworkOrder16Bit() {
+	ws=`hexdump -s $offs -n 1 -e '1/1 "%u"' test2.pkts`
+	((offs+=1))
+	((ws*=256))
+	byteval=`hexdump -s $offs -n 1 -e '1/1 "%u"' test2.pkts`
+	((offs+=1))
+	((ws+=byteval))
+}
+
+NetworkOrder32Bit() {
+	ws=`hexdump -s $offs -n 1 -e '1/1 "%u"' test2.pkts`
+	((offs+=1))
+	((ws*=256))
+	byteval=`hexdump -s $offs -n 1 -e '1/1 "%u"' test2.pkts`
+	((offs+=1))
+	((ws+=byteval))
+	((ws*=256))
+	byteval=`hexdump -s $offs -n 1 -e '1/1 "%u"' test2.pkts`
+	((offs+=1))
+	((ws+=byteval))
+	((ws*=256))
+	byteval=`hexdump -s $offs -n 1 -e '1/1 "%u"' test2.pkts`
+	((offs+=1))
+	((ws+=byteval))
+}
+
+echo
+echo
+
+end=$offs+74
+
+#Start with the destination MAC address
+hexdump -s $offs -n 6 -e '"Ether Dest:        " 5/1 "%02x:" 1/1 "%02x\n"' test2.pkts
+((offs+=6))
+
+# Then the source
+hexdump -s $offs -n 6 -e '"Ether Src:         " 5/1 "%02x:" 1/1 "%02x\n"' test2.pkts
+((offs+=6))
+
+# Next is the packet type, but its in network byte order so we can't
+# use '1/2 "%04x"' - we may be run on a system with another byte order and you'll
+# get different output
+hexdump -s $offs -n 2 -e '"Ether Type:        " 2/1 "%02x" "\n"' test2.pkts
+((offs+=2))
+
+# IP header
+
+# Get the version/len value into a variable we can do arithmetic with
+byteval=`hexdump -s $offs -n 1 -e '1/1 "%u"' test2.pkts`
+((offs+=1))
+
+# The most significant 4 bits are the IP version
+
+((bitws=byteval&0xF0))
+((bitws/=16))
+echo "IP Version:        $bitws"
+
+# Least significant 4 bits are the header length
+((bitws=byteval&0x0F))
+((bitws*=4))
+echo "Header Length:     $bitws"
+
+# Type of service
+byteval=`hexdump -s $offs -n 1 -e '1/1 "%u"' test2.pkts`
+((offs+=1))
+
+# Precedence
+((bitws=byteval&0xE0))
+((bitws/=32))
+echo "Precedence:        $bitws"
+
+# Delay
+((bitws=byteval&0x10))
+if (( bitws ))
+then
+	echo "Minimize delay"
+fi
+
+# Throughput
+((bitws=byteval&0x08))
+if (( bitws ))
+then
+	echo "High throughput"
+fi
+
+# Reliability
+((bitws=byteval&0x08))
+if (( bitws ))
+then
+	echo "High reliability"
+fi
+
+# Cost
+((bitws=byteval&0x08))
+if (( bitws ))
+then
+	echo "Minimize cost"
+fi
+
+# Message length - in network byte order
+NetworkOrder16Bit
+echo "Message Length:    $ws"
+
+# ID
+hexdump -s $offs -n 2 -e '"ID:                " 2/1 "%02x" "\n"' test2.pkts
+((offs+=2))
+
+# Flags
+byteval=`hexdump -s $offs -n 1 -e '1/1 "%u"' test2.pkts`
+((offs+=1))
+
+# DF
+((bitws=byteval&0x40))
+if (( bitws != 0))
+then
+	echo "Don't fragment"
+else
+	# More fragments
+	((bitws=byteval&0x20))
+	if (( bitws ))
+	then
+		echo "More fragments"
+	fi
+
+	# Fragment number
+	((ws=bitws&0x1F))
+	((ws*=256))
+	byteval=`hexdump -s $offs -n 1 -e '1/1 "%u"' test2.pkts`
+	((ws+=byteval))
+	echo "Fragment number:    $ws"
+fi
+((offs+=1))
+
+hexdump -s $offs -n 1 -e '"TTL:               " 1/1 "%u\n"' test2.pkts
+((offs+=1))
+
+hexdump -s $offs -n 1 -e '"Protocol:          " 1/1 "%u\n"' test2.pkts
+((offs+=1))
+
+hexdump -s $offs -n 2 -e '"Header checksum:   " 2/1 "%02x" "\n"' test2.pkts
+((offs+=2))
+
+hexdump -s $offs -n 4 -e '"Source IP Addr:    " 3/1 "%02u." 1/1 "%02u\n"' test2.pkts
+((offs+=4))
+
+hexdump -s $offs -n 4 -e '"Dest IP Addr:      " 3/1 "%02u." 1/1 "%02u\n"' test2.pkts
+((offs+=4))
+
+# TCP header
+NetworkOrder16Bit
+echo "Source Port:       $ws"
+
+NetworkOrder16Bit
+echo "Dest Port:         $ws"
+
+hexdump -s $offs -n 4 -e '"Sequence Number:   " 4/1 "%02x" "\n"' test2.pkts
+((offs+=4))
+
+hexdump -s $offs -n 4 -e '"ACK Number:        " 4/1 "%02x" "\n"' test2.pkts
+((offs+=4))
+
+ws=`hexdump -s $offs -n 1 -e '1/1 "%u"' test2.pkts`
+((offs+=1))
+((ws/=16))
+((ws*=4))
+echo "Header Length:     $ws"
+
+byteval=`hexdump -s $offs -n 1 -e '1/1 "%u"' test2.pkts`
+((offs+=1))
+((bitws=byteval&0x80))
+echo -n "Flags:             "
+if (( bitws ))
+then
+	echo -n "CWR "
+fi
+((bitws=byteval&0x80))
+if (( bitws ))
+then
+	echo -n "CWR "
+fi
+((bitws=byteval&0x40))
+if (( bitws ))
+then
+	echo -n "ECN "
+fi
+((bitws=byteval&0x20))
+if (( bitws ))
+then
+	echo -n "URG "
+fi
+((bitws=byteval&0x10))
+if (( bitws ))
+then
+	echo -n "ACK "
+fi
+((bitws=byteval&0x08))
+if (( bitws ))
+then
+	echo -n "PSH "
+fi
+((bitws=byteval&0x04))
+if (( bitws ))
+then
+	echo -n "RES "
+fi
+((bitws=byteval&0x02))
+if (( bitws ))
+then
+	echo -n "SYN "
+fi
+
+((bitws=byteval&0x01))
+if (( bitws ))
+then
+	echo -n "FIN "
+fi
+echo
+
+NetworkOrder16Bit
+echo "Window Size:       $ws"
+
+hexdump -s $offs -n 2 -e '"Checksum:          " 2/1 "%02x" "\n"' test2.pkts
+((offs+=1))
+
+# Some more of the packet
+echo
+echo
+hexdump -s $offs -n 128 -C test2.pkts
+echo
+echo
