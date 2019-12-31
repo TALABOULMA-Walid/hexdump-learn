@@ -1,0 +1,15 @@
+#!/bin/bash
+# Dumps the partition table of its first argument
+#(supposed to be the first sector of a disk)
+
+echo
+echo ' PARTITION TABLE IN' $1
+echo
+echo '     -------START-------    -------END--------'
+echo ' Boot|   Hd| Cyl | Sec | Tp |   Hd| Cyl | Sec |  LBA Start  |   LBA End   |'
+echo '----------------------------------------------------------------------'
+hexdump -v -s 446 -n 64 -e '1/1 "   %02X|"  3/1 " %3u |"   1/1 " %02X |"  3/1 " %3u |" 2/4 "  %9u  |" "\n"' $1
+echo '-------------------------------------------------------------------'
+echo
+echo
+
