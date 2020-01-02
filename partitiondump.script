@@ -2,14 +2,50 @@
 # Dumps the partition table of its first argument
 #(supposed to be the first sector of a disk)
 
+declare -i CS=0
+declare -i H=0
+declare -i C=0
+declare -i S=0
+declare -i startoffset=446
+declare -i endoffset=510
+declare -i partition_size=16
+declare -i offset=startoffset
+
+get_HCS() {
+	H=`hexdump -v -s $offset -n 1 -e '1/1 "%3u"' $1`
+	((offset+=1))
+	CS=`hexdump -v -s $startoffset -n 1 -e '1/1 "%u"' $1`
+	((offset+=1))
+	((S=CS&0x3f))
+	C=$(( (CS&0xc0)<<2 ))
+	((C+=`hexdump -v -s $startoffset -n 1 -e '1/1 "%u"' $1`))
+	((offset+=1))
+}
+
+
 echo
 echo ' PARTITION TABLE IN' $1
 echo
 echo '     -------START-------    -------END--------'
 echo ' Boot|   Hd| Cyl | Sec | Tp |   Hd| Cyl | Sec |  LBA Start  |   LBA End   |'
 echo '----------------------------------------------------------------------'
-hexdump -v -s 446 -n 64 -e '1/1 "   %02X|"  3/1 " %3u |"   1/1 " %02X |"  3/1 " %3u |" 2/4 "  %9u  |" "\n"' $1
+while [ $offset -lt $endoffset ]
+do
+	hexdump -v -s $offset -n 1 -e '1/1 "   %02X|"' $1
+	((offset+=1))
+
+	get_HCS $1
+	printf " %3u | %3u | %3u |" $H $C $S
+
+	hexdump -v -s $offset -n 1 -e '1/1 " %02X |"' $1
+	((offset+=1))
+
+	get_HCS $1
+	printf " %3u | %3u | %3u |" $H $C $S
+
+	hexdump -v -s $offset -n 8 -e '2/4 "  %9u  |" "\n"' $1
+	((offset+=8))
+done
 echo '-------------------------------------------------------------------'
 echo
 echo
-
