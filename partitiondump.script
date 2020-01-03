@@ -1,6 +1,7 @@
 #!/bin/bash
 # Dumps the partition table of its first argument
 #(supposed to be the first sector of a disk)
+#Good ressource to learn Hexdump https://www.suse.com/c/making-sense-hexdump/
 
 declare -i CS=0
 declare -i H=0
@@ -8,44 +9,48 @@ declare -i C=0
 declare -i S=0
 declare -i startoffset=446
 declare -i endoffset=510
-declare -i partition_size=16
 declare -i offset=startoffset
 
 get_HCS() {
 	H=`hexdump -v -s $offset -n 1 -e '1/1 "%3u"' $1`
 	((offset+=1))
-	CS=`hexdump -v -s $startoffset -n 1 -e '1/1 "%u"' $1`
+	CS=`hexdump -v -s $offset -n 1 -e '1/1 "%u"' $1`
 	((offset+=1))
 	((S=CS&0x3f))
 	C=$(( (CS&0xc0)<<2 ))
-	((C+=`hexdump -v -s $startoffset -n 1 -e '1/1 "%u"' $1`))
+	((C+=`hexdump -v -s $offset -n 1 -e '1/1 "%u"' $1`))
 	((offset+=1))
 }
 
 
 echo
 echo ' PARTITION TABLE IN' $1
-echo
-echo '     -------START-------    -------END--------'
-echo ' Boot|   Hd| Cyl | Sec | Tp |   Hd| Cyl | Sec |  LBA Start  |   LBA End   |'
-echo '----------------------------------------------------------------------'
+echo ' Important CHS adressing is limited, better rely on LBA ' 
+echo '     -------START--------    -------END---------'
+echo ' Boot|   Hd| Cyl  | Sec | Tp |   Hd| Cyl  | Sec |  LBA Start  |  LBA Count |'
+echo '----------------------------------------------------------------------------'
 while [ $offset -lt $endoffset ]
 do
+#bootable ?
 	hexdump -v -s $offset -n 1 -e '1/1 "   %02X|"' $1
 	((offset+=1))
 
+#partition start Head Cylinder and Sector
 	get_HCS $1
-	printf " %3u | %3u | %3u |" $H $C $S
+	printf " %3u | %4u | %3u |" $H $C $S
 
+#partition type
 	hexdump -v -s $offset -n 1 -e '1/1 " %02X |"' $1
 	((offset+=1))
 
+#partition end Head Cylinder and Sector
 	get_HCS $1
-	printf " %3u | %3u | %3u |" $H $C $S
+	printf " %3u | %4u | %3u |" $H $C $S
 
+#partion LBA (Logical block adressing) Start and End
 	hexdump -v -s $offset -n 8 -e '2/4 "  %9u  |" "\n"' $1
 	((offset+=8))
 done
-echo '-------------------------------------------------------------------'
+echo '----------------------------------------------------------------------------'
 echo
 echo
